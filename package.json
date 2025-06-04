@@ -3,6 +3,6 @@
   "private": true,
   "scripts": {
     "start": "node Backend/index.js",
-    "install": "npm install --prefix Backend"
+    "install": "npm install --prefix Backend && pip install instaloader"
   }
 }
