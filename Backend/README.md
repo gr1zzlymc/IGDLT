@@ -11,4 +11,4 @@ npm start
 ```
 
 Make sure Python and `instaloader` are available. The install script will automatically
-run `pip install instaloader`.
+run `pip install --user instaloader`.
