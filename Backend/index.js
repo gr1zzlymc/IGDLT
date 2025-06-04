@@ -1,8 +1,11 @@
 import express from "express";
-import fetch from "node-fetch";
 import path from "path";
 import { fileURLToPath } from "url";
 import { pipeline } from "node:stream/promises";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+
+const execFileP = promisify(execFile);
 
 const app = express();
 const UA = "Mozilla/5.0 Chrome/124 Safari/537.36";
@@ -22,27 +25,11 @@ app.get("/api/ig", async (req, res) => {
     return res.status(400).json({ error: "bad url" });
 
   try {
-    const jsonUrl = link.replace(/\/$/, "") + "/?__a=1&__d=dis";
-    const data = await fetch(jsonUrl, { headers: { "User-Agent": UA } }).then(r => r.json());
-    const media = data?.graphql?.shortcode_media || data?.items?.[0];
-    if (!media) throw new Error("structure changed");
-
-    let images = [];
-    if (media.edge_sidecar_to_children) {
-      images = media.edge_sidecar_to_children.edges.map(e =>
-        e.node.display_url || e.node.display_resources?.[0]?.src || e.node.image_versions2?.candidates?.[0]?.url
-      );
-    } else if (media.carousel_media) {
-      images = media.carousel_media.map(m =>
-        m.image_versions2?.candidates?.[0]?.url || m.display_resources?.[0]?.src
-      );
-    } else {
-      images = [media.display_url || media.image_versions2?.candidates?.[0]?.url];
-    }
-    images = images.filter(Boolean);
-
+    const { stdout } = await execFileP("python3", [path.join(__dirname, "ig_fetch.py"), link], { timeout: 20000 });
+    const parsed = JSON.parse(stdout.trim());
+    if (!Array.isArray(parsed) || !parsed.length) throw new Error("no images");
     res.set("Cache-Control", "public, max-age=604800");
-    return res.json({ images });
+    return res.json({ images: parsed });
   } catch (err) {
     console.error(err);
     return res.status(502).json({ error: "scrape failed" });
