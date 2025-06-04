@@ -1,8 +1,19 @@
 import express from "express";
 import fetch from "node-fetch";
+import path from "path";
+import { fileURLToPath } from "url";
 
 const app = express();
 const UA = "Mozilla/5.0 Chrome/124 Safari/537.36";
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Serve static frontend
+const frontPath = path.join(__dirname, "..", "Frontend");
+app.use(express.static(frontPath));
+
+app.get("/", (req, res) => {
+  res.sendFile(path.join(frontPath, "index.html"));
+});
 
 app.get("/api/ig", async (req, res) => {
   const link = req.query.link?.trim();
