@@ -2,6 +2,7 @@ import express from "express";
 import fetch from "node-fetch";
 import path from "path";
 import { fileURLToPath } from "url";
+import { pipeline } from "node:stream/promises";
 
 const app = express();
 const UA = "Mozilla/5.0 Chrome/124 Safari/537.36";
@@ -35,6 +36,23 @@ app.get("/api/ig", async (req, res) => {
   } catch (err) {
     console.error(err);
     return res.status(502).json({ error: "scrape failed" });
+  }
+});
+
+app.get("/api/img", async (req, res) => {
+  const url = req.query.url;
+  if (!/^https?:\/\//.test(url))
+    return res.status(400).json({ error: "bad url" });
+
+  try {
+    const r = await fetch(url, { headers: { "User-Agent": UA } });
+    if (!r.ok) throw new Error("fetch failed");
+    res.set("Content-Type", r.headers.get("content-type") || "application/octet-stream");
+    res.set("Cache-Control", "public, max-age=604800");
+    await pipeline(r.body, res);
+  } catch (err) {
+    console.error(err);
+    return res.status(502).json({ error: "img fetch failed" });
   }
 });
 

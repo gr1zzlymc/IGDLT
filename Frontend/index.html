@@ -65,7 +65,7 @@ body{
 
 <script>
 (()=>{"use strict";
-const PROXY="https://igdlt.onrender.com/api/ig";   // ← replace with your Render URL
+const API="/api";
 const $=id=>document.getElementById(id);
 /* elements */
 const status=$("status"), imgWrap=$("imgWrap"), imgPrev=$("imgPrev"), imgInfo=$("imgInfo");
@@ -92,9 +92,9 @@ async function fetchIG(){
   const link=igInput.value.trim();
   if(!/^https?:\/\/(www\.)?instagram\.com\/p\//.test(link)){show("Bad Instagram URL","error");return;}
   try{loading(true);show("Fetching…");
-    const r=await fetch(`${PROXY}?link=${encodeURIComponent(link)}`);if(!r.ok)throw r.statusText;
+    const r=await fetch(`${API}/ig?link=${encodeURIComponent(link)}`);if(!r.ok)throw r.statusText;
     const {images}=await r.json();if(!images?.length)throw"No image";
-    await render(await fetch(images[0]).then(x=>x.blob()));
+    await render(await fetch(`${API}/img?url=${encodeURIComponent(images[0])}`).then(x=>x.blob()));
     show(`${images.length} image${images.length>1?"s":""} ready`,"success");
   }catch(e){show(e,"error");console.error(e);}finally{loading(false);}
 }
