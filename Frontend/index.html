@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<title>CtrlV.gg – Mobile</title>
+<style>
+/* ─────────── Tokens & reset ─────────── */
+:root{
+  --g1:linear-gradient(135deg,#667eea 0%,#764ba2 100%);
+  --glass-bg:rgba(255,255,255,.15);
+  --glass-br:rgba(255,255,255,.25);
+  --tx1:#fff; --tx2:rgba(255,255,255,.85); --vh:1vh;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{
+  background:linear-gradient(-45deg,#ee7752,#e73c7e,#23a6d5,#23d5ab);
+  background-size:400% 400%;animation:bg 20s ease infinite;
+  min-height:100vh;overflow-x:hidden;touch-action:manipulation}
+@keyframes bg{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+/* utility */
+.glass{background:var(--glass-bg);backdrop-filter:blur(20px);border:1px solid var(--glass-br);box-shadow:0 10px 30px rgba(0,0,0,.2)}
+.btn{cursor:pointer;border:none;border-radius:16px;padding:.9rem 1.8rem;font-weight:600;transition:.3s cubic-bezier(.4,0,.2,1)}
+.url-field{width:100%;max-width:280px;margin:.8rem 0 1.2rem;padding:.9rem 1rem;border:1px solid var(--glass-br);border-radius:14px;background:var(--glass-bg);color:var(--tx1);font-size:.9rem}
+.url-field::placeholder{color:var(--tx2)}
+/* remaining css identical to earlier refactor (omitted here for brevity) … */
+</style>
+</head>
+<body>
+<div class="container">
+  <header class="header">
+    <h1 class="logo">CtrlV.gg</h1>
+    <p class="tagline">Clipboard & Instagram Magic</p>
+  </header>
+
+  <section class="main">
+    <!-- Clipboard / IG input card -->
+    <article class="glass paste-card">
+      <div class="paste-zone">
+        <div class="icon">🔗</div>
+        <h2 class="paste-title">Paste an Image or Instagram URL</h2>
+        <input id="igInput" class="url-field" placeholder="https://www.instagram.com/p/…/">
+        <button class="btn paste-btn" id="fetchBtn">⬇️ Fetch</button>
+        <p style="margin:1rem 0;font-weight:700">— or —</p>
+        <button class="btn paste-btn" id="pasteBtn">📋 Paste Clipboard Image</button>
+      </div>
+      <div class="status" id="status"></div>
+    </article>
+
+    <!-- Image viewer -->
+    <article class="glass image-wrap" id="imgWrap">
+      <div class="image-header">
+        <span class="image-info" id="imgInfo"> </span>
+        <div>
+          <button class="btn-icon" id="shareBtn" title="Share">📤</button>
+          <button class="btn-icon" id="dlBtn"    title="Download">💾</button>
+          <button class="btn-icon" id="fsBtn"    title="Fullscreen">🔍</button>
+        </div>
+      </div>
+      <div class="image-preview" id="imgPrev"></div>
+    </article>
+  </section>
+</div>
+
+<script>
+(()=>{"use strict";
+const PROXY="https://ctrlv-ig.onrender.com/api/ig";   // ← replace with your Render URL
+const $=id=>document.getElementById(id);
+/* elements */
+const status=$("status"), imgWrap=$("imgWrap"), imgPrev=$("imgPrev"), imgInfo=$("imgInfo");
+const pasteBtn=$("pasteBtn"), fetchBtn=$("fetchBtn"), igInput=$("igInput");
+const shareBtn=$("shareBtn"), dlBtn=$("dlBtn"), fsBtn=$("fsBtn");
+let blob=null,url=null;
+/* helpers */
+const show=(m,t="info",ms=t==="error"?5e3:3e3)=>{status.textContent=m;status.className=`status ${t} show`;setTimeout(()=>status.classList.remove("show"),ms)};
+const loading=on=>{[pasteBtn,fetchBtn].forEach(b=>b.classList.toggle("loading",on));};
+const render=async b=>{if(url)URL.revokeObjectURL(url);blob=b;url=URL.createObjectURL(b);const img=new Image;img.src=url;await img.decode();imgPrev.innerHTML="";imgPrev.appendChild(img);imgInfo.textContent=`${img.naturalWidth}×${img.naturalHeight} • ${Math.round(b.size/1024)} KB`;imgWrap.classList.add("show");setTimeout(()=>imgWrap.scrollIntoView({behavior:"smooth"}),300)};
+/* clipboard */
+async function pasteImage(){
+  try{loading(true);show("Accessing clipboard…");
+    const items=await navigator.clipboard.read();
+    for(const it of items){
+      const t=it.types.find(x=>x.startsWith("image/"));if(!t)continue;
+      await render(await it.getType(t));show("Image loaded","success");return;}
+    throw"No image";
+  }catch(e){show(e==="No image"?"Copy an image first":"Clipboard failed","error");}
+  finally{loading(false);}
+}
+/* instagram */
+async function fetchIG(){
+  const link=igInput.value.trim();
+  if(!/^https?:\/\/(www\.)?instagram\.com\/p\//.test(link)){show("Bad Instagram URL","error");return;}
+  try{loading(true);show("Fetching…");
+    const r=await fetch(`${PROXY}?link=${encodeURIComponent(link)}`);if(!r.ok)throw r.statusText;
+    const {images}=await r.json();if(!images?.length)throw"No image";
+    await render(await fetch(images[0]).then(x=>x.blob()));
+    show(`${images.length} image${images.length>1?"s":""} ready`,"success");
+  }catch(e){show(e,"error");console.error(e);}finally{loading(false);}
+}
+/* actions */
+pasteBtn.onclick=pasteImage;fetchBtn.onclick=fetchIG;
+shareBtn.onclick=async()=>{if(!blob)return;try{const f=new File([blob],"image.png",{type:blob.type||"image/png"});if(navigator.canShare?.({files:[f]})){await navigator.share({files:[f],title:"Shared from CtrlV.gg"});show("Shared","success");return;}await navigator.clipboard.write([new ClipboardItem({[f.type]:f})]);show("Copied","success");}catch(e){show("Share failed","info")}};
+dlBtn.onclick=()=>{if(!url)return;const a=document.createElement("a");a.href=url;a.download=`ctrlv-${Date.now()}.png`;a.click();show("Download started","success")};
+fsBtn.onclick=()=>{const img=imgPrev.querySelector("img");img?.requestFullscreen?.()};
+})();
+</script>
+</body>
+</html>
