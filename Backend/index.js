@@ -24,12 +24,22 @@ app.get("/api/ig", async (req, res) => {
   try {
     const jsonUrl = link.replace(/\/$/, "") + "/?__a=1&__d=dis";
     const data = await fetch(jsonUrl, { headers: { "User-Agent": UA } }).then(r => r.json());
-    const media = data?.graphql?.shortcode_media;
+    const media = data?.graphql?.shortcode_media || data?.items?.[0];
     if (!media) throw new Error("structure changed");
 
-    const images = media.edge_sidecar_to_children
-      ? media.edge_sidecar_to_children.edges.map(e => e.node.display_url)
-      : [media.display_url];
+    let images = [];
+    if (media.edge_sidecar_to_children) {
+      images = media.edge_sidecar_to_children.edges.map(e =>
+        e.node.display_url || e.node.display_resources?.[0]?.src || e.node.image_versions2?.candidates?.[0]?.url
+      );
+    } else if (media.carousel_media) {
+      images = media.carousel_media.map(m =>
+        m.image_versions2?.candidates?.[0]?.url || m.display_resources?.[0]?.src
+      );
+    } else {
+      images = [media.display_url || media.image_versions2?.candidates?.[0]?.url];
+    }
+    images = images.filter(Boolean);
 
     res.set("Cache-Control", "public, max-age=604800");
     return res.json({ images });
