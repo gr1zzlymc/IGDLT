@@ -1,0 +1,8 @@
+{
+  "name": "ig-proxy-root",
+  "private": true,
+  "scripts": {
+    "start": "node Backend/index.js",
+    "install": "npm install --prefix Backend"
+  }
+}

@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: ctrlv-ig
+    env: node
+    plan: free
+    buildCommand: "npm install"
+    startCommand: "npm start"
+    branch: main
+    healthCheckPath: "/api/ig?link=https://www.instagram.com/p/Cv5tmDXKfTI/"
